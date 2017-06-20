@@ -4,73 +4,78 @@
 [![License (3-Clause BSD)](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 
-**This project is in an early stage of development.  It is subject to change without warning. Do not use this code for production work.**
+***This project is in a pre-release stage of development.  It is subject to change without warning. Do not use this code for production work.***
 
+***If you are looking for the current version of GATK to use in production work (ie., GATK3), please see the [GATK website](http://www.broadinstitute.org/gatk), where you can download a precompiled executable, read documentation, ask questions and receive technical support.***
 
-### GATK 4 (codename Hellbender)
+### GATK 4
 
-This repository contains the next generation GATK/Picard engine and the freely available tools (see [LICENSE](https://github.com/broadinstitute/gatk/blob/master/LICENSE.TXT)). See also the [gatk-protected](https://github.com/broadinstitute/gatk-protected) repository for additional GATK tools that are distributed under a different license.
+This repository contains the next generation of the Genome Analysis Toolkit (GATK). The contents
+of this repository are 100% open source and released under the BSD 3-Clause license (see [LICENSE.TXT](https://github.com/broadinstitute/gatk/blob/master/LICENSE.TXT)).
 
 GATK4 aims to bring together well-established tools from the [GATK](http://www.broadinstitute.org/gatk) and
-[Picard](http://broadinstitute.github.io/picard/) codebases under a single simplified, streamlined framework,
+[Picard](http://broadinstitute.github.io/picard/) codebases under a streamlined framework,
 and to enable selected tools to be run in a massively parallel way on local clusters or in the cloud using
-[Apache Spark](http://spark.apache.org/).
+[Apache Spark](http://spark.apache.org/). It also contains many newly developed tools not present in earlier
+releases of the toolkit.
 
-This project is in an alpha development stage and is not yet ready for general use.
+## Table of Contents
+* [Requirements](#requirements)
+* [Quick Start Guide](#quickstart)
+* [Building GATK4](#building)
+* [Running GATK4](#running)
+    * [Passing JVM options to gatk-launch](#jvmoptions)
+    * Running GATK4 with inputs on Google Cloud Storage
+    * Running GATK4 Spark tools on a Spark cluster
+    * Running GATK4 Spark tools on Google Cloud Dataproc
+* Testing GATK4
+    * Using Git LFS to download and track large test data
+ 
 
-If you are looking for the current version of GATK to use in production work, please see the [GATK website](http://www.broadinstitute.org/gatk), where you can download a precompiled executable, read documentation, ask questions and receive technical support.
-
-If you are looking for the codebase of the current production version of GATK, please see either the [GATK development framework repository](https://github.com/broadgsa/gatk/) or the [full GATK tools repository](https://github.com/broadgsa/gatk-protected/).
-
-## Requirements
+## <a name="requirements">Requirements</a>
 * Java 8
 * Git 2.5 or greater
 * Optional, but recommended:
-    * Gradle 2.12 or greater, needed for building the GATK. We recommend using the `./gradlew` script which will
+    * Gradle 3.1 or greater, needed for building the GATK. We recommend using the `./gradlew` script which will
       download and use an appropriate gradle version automatically (see examples below).
     * Python 2.6 or greater (needed for running the `gatk-launch` frontend script)
     * R 3.1.3 (needed for producing plots in certain tools, and for running the test suite)
     * [git-lfs](https://git-lfs.github.com/) 1.1.0 or greater (needed to download large files for the complete test suite).
-      Run `git lfs install` after downloading, followed by `git lfs pull` to download the large files. The download is ~500 MB.
+      Run `git lfs install` after downloading, followed by `git lfs pull` from the root of your git clone to download the large files. The download is several hundred megabytes.
 
-## Quick Start Guide
+## <a name="quickstart">Quick Start Guide</a>
 
-* Build the GATK: `./gradlew installAll`
+* Build the GATK: `./gradlew bundle` (creates `gatk-VERSION.zip` in `build/`)
 * Get help on running the GATK: `./gatk-launch --help`
 * Get a list of available tools: `./gatk-launch --list`
 * Run a tool: `./gatk-launch PrintReads -I src/test/resources/NA12878.chr17_69k_70k.dictFix.bam -O output.bam`
 * Get help on a particular tool: `./gatk-launch PrintReads --help`
 
-## Building GATK4
+## <a name="building">Building GATK4</a>
 
-* To do a fast build that lets you run GATK tools locally (but not on a cluster) from inside a git clone, run
+* **To do a full build of GATK4, run:**
+
+        ./gradlew bundle
         
-        ./gradlew installDist
+  Equivalently, you can just type:
+  
+        ./gradlew
         
-* To do a slower build that lets you run GATK tools both locally and on a cluster from inside a git clone, run
+    * This creates a zip archive in the `build/` directory with a name like `gatk-VERSION.zip` containing a complete standalone GATK distribution, including our launcher `gatk-launch`, both the local and spark jars, and this README.    
+    * You can also run GATK commands directly from the root of your git clone after running this command.
 
-        ./gradlew installAll
-     
-* To build a fully-packaged GATK jar that can be distributed and includes all dependencies needed for running tools locally, run
+* **Other ways to build:**
+    * `./gradlew installDist`  
+        * Does a *fast* build that only lets you run GATK tools from inside your git clone, and locally only (not on a cluster). Good for developers! 
+    * `./gradlew installAll`
+        * Does a *semi-fast* build that only lets you run GATK tools from inside your git clone, but works both locally and on a cluster. Good for developers!
+    * `./gradlew localJar`
+        * Builds *only* the GATK jar used for running tools locally (not on a Spark cluster). The resulting jar will be in `build/libs` with a name like `gatk-package-VERSION-local.jar`, and can be used outside of your git clone.
+    * `./gradlew sparkJar`
+        * Builds *only* the GATK jar used for running tools on a Spark cluster (rather than locally). The resulting jar will be in `build/libs` with a name like `gatk-package-VERSION-spark.jar`, and can be used outside of your git clone. 
+        * This jar will not include Spark and Hadoop libraries, in order to allow the versions of Spark and Hadoop installed on your cluster to be used.
 
-        ./gradlew localJar
-        
-    * The resulting jar will be in `build/libs` with a name like `gatk-package-VERSION-local.jar`
-    
-* To build a fully-packaged GATK jar that can be distributed and includes all dependencies needed for running spark tools on a cluster, run
-
-        ./gradlew sparkJar
-        
-    * The resulting jar will be in `build/libs` with a name like `gatk-package-VERSION-spark.jar`
-    * This jar will not include Spark and Hadoop libraries, in order to allow the versions of Spark and Hadoop installed on your cluster to be used.
-
-* To create a zip archive containing a complete standalone GATK distribution, including our launcher `gatk-launch`, both the local and spark jars, and this README, run
-
-        ./gradlew zipBundle
-        
-    * The resulting zip file will be in `build` with a name like `gatk-VERSION.zip`
-
-* To remove previous builds, run 
+* **To remove previous builds, run:** 
 
         ./gradlew clean
 
@@ -79,27 +84,27 @@ If you are looking for the codebase of the current production version of GATK, p
 
 * Gradle keeps a cache of dependencies used to build GATK.  By default this goes in `~/.gradle`.  If there is insufficient free space in your home directory, you can change the location of the cache by setting the `GRADLE_USER_HOME` environment variable.
 
-## Running GATK4
+## <a name="running">Running GATK4</a>
 
 * The standard way to run GATK4 tools is via the **`gatk-launch`** wrapper script located in the root directory of a clone of this repository.
     * Requires Python 2.6 or greater.
-    * You need to have built the GATK as described in the "Building GATK4" section above before running this script.
-    * There are three ways `gatk-launch` can be run:
-        * from the root of your git clone after building
-        * or, put the `gatk-launch` script within the same directory as fully-packaged GATK jars produced by `./gradlew localJar` and `./gradlew sparkJar`
-        * or, the environment variables `GATK_LOCAL_JAR` and `GATK_SPARK_JAR` can be defined, and contain the paths to the fully-packaged GATK jars produced by `./gradlew localJar` and `./gradlew sparkJar` 
-    * Can run non-Spark tools as well as Spark tools, and can run Spark tools locally, on a Spark cluster, or on Google Cloud Dataproc.
+    * You need to have built the GATK as described in the [Building GATK4](#building) section above before running this script.
+    * There are several ways `gatk-launch` can be run:
+        * Directly from the root of your git clone after building
+        * By extracting the zip archive produced by `./gradlew bundle` to a directory, and running `gatk-launch` from there
+        * Manually putting the `gatk-launch` script within the same directory as fully-packaged GATK jars produced by `./gradlew localJar` and/or `./gradlew sparkJar`
+        * Defining the environment variables `GATK_LOCAL_JAR` and `GATK_SPARK_JAR`, and setting them to the paths to the GATK jars produced by `./gradlew localJar` and/or `./gradlew sparkJar` 
+    * `gatk-launch` can run non-Spark tools as well as Spark tools, and can run Spark tools locally, on a Spark cluster, or on Google Cloud Dataproc.
 
 * For help on using `gatk-launch` itself, run **`./gatk-launch --help`**
 
 * To print a list of available tools, run **`./gatk-launch --list`**.
-    * Spark-based tools will have a name ending in `Spark` (eg., `BaseRecalibratorSpark`) and will be in one of the
-      `Spark` categories. All other tools are non-Spark-based.
+    * Spark-based tools will have a name ending in `Spark` (eg., `BaseRecalibratorSpark`). Most other tools are non-Spark-based.
 
 * To print help for a particular tool, run **`./gatk-launch ToolName --help`**.
 
-* To run a non-Spark tool, or to run a Spark tool locally, the syntax is:
-**`./gatk-launch ToolName toolArguments`**.
+* To run a non-Spark tool, or to run a Spark tool locally, the syntax is: **`./gatk-launch ToolName toolArguments`**.
+
 * Examples:
 
   ```
@@ -110,9 +115,19 @@ If you are looking for the codebase of the current production version of GATK, p
   ./gatk-launch PrintReadsSpark -I input.bam -O output.bam
   ```
 
+#### <a name="jvmoptions">Passing JVM options to gatk-launch</a>
+
+* To pass JVM arguments to GATK, run `gatk-launch` with the `--javaOptions` argument: 
+
+    ```
+    ./gatk-launch --javaOptions "-Xmx4G" <rest of command>
+     
+    ./gatk-launch --javaOptions "-Xmx4G -XX:+PrintGCDetails" <rest of command>
+    ```
+
 #### Running GATK4 with inputs on Google Cloud Storage:
 
-* GATK can read BAM or VCF inputs from a Google Cloud Storage bucket. Just use the "gs://" prefix:
+* Many GATK4 tools can read BAM or VCF inputs from a Google Cloud Storage bucket. Just use the "gs://" prefix:
   ```
   ./gatk-launch PrintReads -I gs://mybucket/path/to/my.bam -L 1:10000-20000 -O output.bam
   ```
@@ -205,28 +220,7 @@ If you are looking for the codebase of the current production version of GATK, p
   * Dataproc Spark clusters are configured with [dynamic allocation](https://spark.apache.org/docs/latest/job-scheduling.html#dynamic-resource-allocation) so you can omit the "--num-executors" argument and let YARN handle it automatically.
       
 
-
-## Passing options to the JVM
-
-* To pass JVM arguments to GATK, use `JAVA_OPTS` like in this example (note that it may not work in Spark):
-
-```
-   JAVA_OPTS="-XX:+PrintGCDetails" ./gatk-launch ApplyBQSR --help
-```
-
-* By default, GATK (non-spark) uses compression level 1 for writing BAM files (fastest code but least compressed files). Level 1 BAM files are only 10% larger than level 5 but they take less than half as much time to create. To change the default compression level, run GATK like this:
-
-```
-   JAVA_OPTS="-Dsamjdk.compression_level=5" ./gatk-launch <rest of command>
-```
-
-* By default, GATK (non-spark) uses asynchronous IO for writing BAM files (using 1 compression thread per file), to improve speed. To change the default, run GATK like this:
-
-```
-   JAVA_OPTS="-Dsamjdk.use_async_io_samtools=false" ./gatk-launch <rest of command>
-```
-
-## Testing GATK4
+## Testing GATK
 
 * To run the tests, run **`./gradlew test`**.
     * Test report is in `build/reports/tests/test/index.html`.
@@ -267,6 +261,10 @@ If you are looking for the codebase of the current production version of GATK, p
     * To add a performance test (requires Broad-ID), you need to make a "new item" in Jenkins and make it a "copy" instead of a blank project. You need to base it on either the "-spark-" jobs or the other kind of jobs and alter the commandline. 
 
 * To output stack traces for `UserException` set the environment variable `GATK_STACKTRACE_ON_USER_EXCEPTION=true`
+
+#### Using Git LFS to download and track large test data
+
+
 
 ## General guidelines for GATK4 developers
 
@@ -422,6 +420,14 @@ Currently all builds are considered snapshots.  The archive name is based off of
 ## GATK4 Docker images
 
 Please see the README.md in ``scripts/docker``.  This has instructions for the Dockerfile in the root directory.
+
+## The CNV case and PoN workflows (description and examples)
+
+This can be found [here](http://gatkforums.broadinstitute.org/gatk/discussion/6791/description-and-examples-of-the-steps-in-the-cnv-case-and-cnv-pon-creation-workflows)
+
+## Running the CNV case and PoN creation Workflows with premade Queue scripts
+
+For [Broad Internal instructions](http://gatkforums.broadinstitute.org/gatk/discussion/6786/howto-run-gatk-cnv-using-premade-queue-scripts-broad-internal)
 
 ### Further Reading on Spark
 
